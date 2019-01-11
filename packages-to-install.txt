@@ -1,0 +1,16 @@
+1) python3 pip packages
+python3 -m pip install redis
+python3 -m pip install flask
+python3 -m pip install flask_sqlalchemy
+python3 -m pip install flask_marshmallow
+python3 -m pip install pymysql
+python3 -m pip install marshmallow-sqlalchemy
+
+2) apt packages
+apt-get install mysql-server
+apt-get install redis-server
+
+3) apt packages configuration
+- sudo nano /etc/mysql/mysql.cnf
+- https://stackoverflow.com/a/41793945/3263374, but use this:
+- ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'root'
