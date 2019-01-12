@@ -1,0 +1,43 @@
+---
+- name: Flask
+  hosts: all
+  become: yes
+  gather_facts: False
+  pre_tasks:
+    - name: Install python for Ansible
+      raw: test -e /usr/bin/python || (apt -y update && apt install -y python-minimal)
+      changed_when: False
+    - name: Install apt packages
+      apt:
+        name: "{{ packages }}"
+      vars:
+        packages:
+          - python3
+          - python3-pip
+          - python-pip
+          - redis-server
+          - mysql-server
+          - libmysqlclient-dev
+    - name: Install pip2 packages
+      pip:
+        requirements: /home/vagrant/requirements2.txt
+    - name: Install pip3 packages
+      pip:
+        executable: pip3
+        requirements: /home/vagrant/requirements3.txt
+    - setup: # aka gather_facts
+  tasks:
+    - name: update mysql root password for all root accounts
+      mysql_user: 
+        name: root 
+        host: "{{ item }}" 
+        password: root
+        login_user: root
+        login_password: root
+        check_implicit_admin: yes
+        priv: "*.*:ALL,GRANT"
+      with_items:
+        - "{{ ansible_hostname }}"
+        - 127.0.0.1
+        - ::1
+        - localhost 

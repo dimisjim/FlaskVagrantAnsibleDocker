@@ -1,24 +1,13 @@
 Vagrant.configure("2") do |config|
   
-  # Base box
-  config.vm.box = "ubuntu/bionic64"
-  
   # Set Disksize for vb
-  config.disksize.size = '40GB'
+  config.disksize.size = '10GB'
 
-  # Define vm name
-  config.vm.define "y-dev-env-base"
-
-  # Prepare structure
-  $script = <<-SCRIPT
-  sudo chmod 777 /tmp
-  sudo mkdir -p /vagrant_data/assets
-  sudo chmod -R 777 /vagrant_data
-  SCRIPT
-  config.vm.provision "shell", inline: $script
-  config.vm.provision "file", source: "../../../commons/conda.runtime-vagrant-env.yml", destination: "/vagrant_data/assets/conda.runtime-vagrant-env.yml"
-  config.vm.provision "file", source: "../../../commons/yields_landscape1.jpg", destination: "/vagrant_data/assets/yields_landscape1.jpg"
-  config.vm.provision "file", source: "../../../commons/bootstrap-base-functions.sh", destination: "/vagrant_data/assets/bootstrap-base-functions.sh"
+  config.vm.provider "virtualbox" do |vb|
+    vb.memory = "1024"
+    vb.customize ["modifyvm", :id, "--uartmode1", "disconnected"]
+    vb.customize ['modifyvm', :id, '--clipboard', 'bidirectional']
+  end
 
   require 'time'
   offset = ((Time.zone_offset(Time.now.zone) / 60) / 60)
@@ -26,18 +15,42 @@ Vagrant.configure("2") do |config|
   timezone = 'Etc/GMT' + timezone_suffix
   config.vm.provision :shell, :inline => "sudo rm /etc/localtime && sudo ln -s /usr/share/zoneinfo/" + timezone + " /etc/localtime", run: "always"
 
-  config.vm.provider "virtualbox" do |vb|
-    vb.gui = true
-    vb.memory = "4096"
-    vb.customize ["modifyvm", :id, "--uartmode1", "disconnected"]
-    vb.customize ['modifyvm', :id, '--clipboard', 'bidirectional']
+  config.vm.provision "file", source: "app.py", destination: "~/app.py"
+  config.vm.provision "file", source: "config.py", destination: "~/config.py"
+  config.vm.provision "file", source: "initdb.py", destination: "~/initdb.py"
+
+  $script = <<-SCRIPT
+  sudo mkdir -p /opt/flask
+  sudo mv /home/vagrant/app.py /opt/flask/
+  sudo mv /home/vagrant/config.py /opt/flask/
+  sudo mv /home/vagrant/initdb.py /opt/flask/
+  SCRIPT
+  config.vm.provision "shell", inline: $script
+
+  config.vm.provision "file", source: "requirements3.txt", destination: "~/requirements3.txt"
+  config.vm.provision "file", source: "requirements2.txt", destination: "~/requirements2.txt"
+
+  config.vm.provision "ansible" do |ansible|
+    #ansible.verbose = true
+    ansible.playbook = "playbook.yml"
   end
 
-  config.vm.provision "step 1", type: "shell" do |s|
-    s.path = "bootstrap-base.sh"
-    s.env = {"WORKER" => "vagrant"}
+  config.vm.define "flask1" do |flask1|
+    flask1.vm.box = "ubuntu/bionic64"
   end
 
-  config.vm.provision :reload
+  config.vm.network "private_network", 
+    ip: "192.168.33.10"
+  config.vm.network "forwarded_port", 
+    guest: 5000,
+    host: 8888
+
+  # config.vm.define "flask2" do |flask2|
+  #   flask2.vm.box = "ubuntu/bionic64"
+  # end
+
+  # config.vm.define "flask3" do |flask3|
+  #   flask3.vm.box = "ubuntu/bionic64"
+  # end
 
 end
