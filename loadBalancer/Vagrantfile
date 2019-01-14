@@ -1,0 +1,66 @@
+Vagrant.configure("2") do |config|
+  
+  #vagrant plugin to install run command 'vagrant plugin install vagrant-hostmanager'
+  config.hostmanager.enabled = true
+  config.hostmanager.manage_host = true
+  config.hostmanager.ignore_private_ip = false
+  config.hostmanager.include_offline = true
+  
+  config.ssh.insert_key = false
+
+  #load balancer
+  config.vm.define "lb" do |lb_config|
+      lb_config.vm.box = "ubuntu/bionic64"
+      lb_config.vm.hostname = "loadbalancer"
+      lb_config.vm.network "private_network", ip: "192.168.33.10"
+      lb_config.vm.network :forwarded_port, guest: 80, host: 8080
+      lb_config.vm.provider "virtualbox" do |vb|
+        vb.memory = "256"
+        vb.customize ["modifyvm", :id, "--uartmode1", "disconnected"]
+      end
+  end
+  
+  
+  #flask web servers
+  N=3 #flask web servers number
+  (1..N).each do |i|
+    config.vm.define "flask#{i}" do |node|
+        node.vm.box = "ubuntu/bionic64"
+        node.vm.hostname = "flask#{i}"
+        node.vm.network "private_network", ip: "10.0.15.2#{i}"
+        node.vm.network :forwarded_port, guest: 80, host: "808#{i}"
+        node.vm.provider "virtualbox" do |vb|
+          vb.memory = "512"
+          vb.customize ["modifyvm", :id, "--uartmode1", "disconnected"]
+        end
+
+        node.vm.provision "file", source: "python/app.py", destination: "~/app.py"
+        node.vm.provision "file", source: "python/config.py", destination: "~/config.py"
+        node.vm.provision "file", source: "python/initdb.py", destination: "~/initdb.py"
+        node.vm.provision "file", source: "python/app.ini", destination: "~/app.ini"
+        node.vm.provision "file", source: "app.service", destination: "~/app.service"
+      
+        $script = <<-SCRIPT
+        sudo mkdir -p /opt/flask/log
+        sudo mv /home/vagrant/app.py /opt/flask/
+        sudo mv /home/vagrant/config.py /opt/flask/
+        sudo mv /home/vagrant/initdb.py /opt/flask/
+        sudo mv /home/vagrant/app.ini /opt/flask/
+        sudo mv /home/vagrant/app.service /etc/systemd/system/
+        SCRIPT
+        node.vm.provision "shell", inline: $script
+
+      if i == N
+        node.vm.provision "hostmanager"
+        node.vm.provision "ansible" do |ansible|
+          ansible.limit = "all"
+          ansible.inventory_path ="ansible/hosts"
+          ansible.playbook = "ansible/playbooks/main.yml"
+          # ansible.verbose = 'vv'
+        end
+      end
+
+    end
+  end
+
+end

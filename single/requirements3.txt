@@ -4,3 +4,4 @@ flask_sqlalchemy
 flask_marshmallow
 pymysql
 marshmallow-sqlalchemy
+uwsgi
